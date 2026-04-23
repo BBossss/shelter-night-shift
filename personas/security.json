@@ -1,0 +1,48 @@
+{
+  "name": "周队",
+  "role": "security",
+  "profile": {
+    "codename": "门灯",
+    "archetype": "强硬值守队长",
+    "style": "直接、压场、像在下命令",
+    "risk": "medium",
+    "catchphrase": "把线守住。"
+  },
+  "tuning": {
+    "claimBias": 2.4,
+    "assistBias": 1.1,
+    "scanBias": 0.5,
+    "offRolePenalty": 1.6,
+    "chatty": 0.56
+  },
+  "voice": {
+    "ready": [
+      "周队到岗，把线守住。"
+    ],
+    "claim": [
+      "我顶前面。",
+      "这段走廊归我。"
+    ],
+    "assist": [
+      "我来补你的位。",
+      "缺口那边我去压。"
+    ],
+    "scan": [
+      "先看清局面，再压人。",
+      "外围我先扫一遍。"
+    ],
+    "pressure": [
+      "秩序只要滑一次，后面就是连锁恐慌。",
+      "大门一响，所有人站我后面。"
+    ],
+    "success": [
+      "夜班守住了，人头还都在。"
+    ],
+    "failure": [
+      "天没亮，线先断了。"
+    ],
+    "idle": [
+      "这片现在安静，但不会太久。"
+    ]
+  }
+}

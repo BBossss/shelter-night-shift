@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>避难所夜班</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Agent 直连观战版 Alpha</p>
+          <h1>避难所夜班</h1>
+          <p id="phaseLabel" class="phase">加载中...</p>
+        </div>
+        <button id="resetButton" class="reset">重置房间</button>
+      </header>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="grid top-grid">
+        <article class="panel">
+          <h2>房间概况</h2>
+          <div id="roomSummary"></div>
+        </article>
+
+        <article class="panel">
+          <h2>值班成员</h2>
+          <div id="agents"></div>
+        </article>
+
+        <article class="panel">
+          <h2>当前危机</h2>
+          <div id="tasks"></div>
+        </article>
+      </section>
+
+      <section class="grid bottom-grid">
+        <article class="panel">
+          <h2>事件流</h2>
+          <div id="events"></div>
+        </article>
+
+        <article class="panel">
+          <h2>聊天流</h2>
+          <div id="chat"></div>
+        </article>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+  </html>

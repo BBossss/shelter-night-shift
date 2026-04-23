@@ -1,0 +1,27 @@
+{
+  "name": "shelter-night-shift",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server/server.ts",
+    "start": "tsx src/server/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "agent:doctor": "tsx src/clients/run-agent.ts --persona personas/doctor.json",
+    "agent:engineer": "tsx src/clients/run-agent.ts --persona personas/engineer.json",
+    "agent:security": "tsx src/clients/run-agent.ts --persona personas/security.json",
+    "agent:logistics": "tsx src/clients/run-agent.ts --persona personas/logistics.json",
+    "agents": "tsx src/clients/run-squad.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
