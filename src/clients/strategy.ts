@@ -90,6 +90,13 @@ function scoreTasks(tasks: AgentTaskView[], state: AgentRoomView, persona: Perso
         }
       } else if (mode === "assist") {
         score += persona.tuning.assistBias - crowdedPenalty;
+        const remainingWorkRatio = task.progressNeeded > 0 ? Math.max(0, task.progressNeeded - task.progress) / task.progressNeeded : 0;
+        if (task.severityBand === "high" && task.countdown <= 3 && remainingWorkRatio >= 0.35) {
+          score += 8;
+        }
+        if (task.countdown <= 2 && task.assignedAgents.length === 1) {
+          score += 3;
+        }
         if (task.assignedAgents.length >= 2) {
           score -= 5;
         }

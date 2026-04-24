@@ -4,6 +4,7 @@ export type AgentStatus = "idle" | "working" | "scanning" | "offline";
 export type TaskType = "medical" | "engineering" | "security" | "logistics";
 export type TaskStatus = "open" | "in_progress" | "resolved" | "failed";
 export type Zone = "infirmary" | "generator" | "gate" | "warehouse" | "quarters";
+export type ZoneCondition = "stable" | "strained" | "critical";
 
 export interface BaseMetrics {
   power: number;
@@ -51,6 +52,49 @@ export interface PublicTaskState {
   countdown: number;
   status: TaskStatus;
   assignedAgents: string[];
+  assignedAgentNames: string[];
+  progress: number;
+  progressNeeded: number;
+}
+
+export interface ZoneStatus {
+  zone: Zone;
+  pressure: number;
+  condition: ZoneCondition;
+}
+
+export interface TaskHistoryEntry {
+  id: string;
+  title: string;
+  type: TaskType;
+  zone: Zone;
+  status: "resolved" | "failed";
+  tick: number;
+  assignedAgentNames: string[];
+  failureEffect?: FailureEffect;
+}
+
+export interface AgentContribution {
+  agentId: string;
+  name: string;
+  role: AgentRole;
+  claims: number;
+  assists: number;
+  scans: number;
+  resolved: number;
+  failedTouched: number;
+  progress: number;
+}
+
+export interface RoomRecap {
+  phase: RoomPhase;
+  failureCause: "power" | "infection" | "order" | null;
+  tasksResolved: number;
+  tasksFailed: number;
+  taskHistory: TaskHistoryEntry[];
+  agentContributions: AgentContribution[];
+  keyEvents: EventEntry[];
+  finalBase: BaseMetrics;
 }
 
 export interface InternalTaskState extends PublicTaskState {
@@ -99,6 +143,9 @@ export interface RoomState {
   base: BaseMetrics;
   agents: RegisteredAgent[];
   tasks: InternalTaskState[];
+  taskHistory: TaskHistoryEntry[];
+  agentContributions: AgentContribution[];
+  zones: ZoneStatus[];
   events: EventEntry[];
   chat: ChatMessage[];
 }
@@ -139,6 +186,8 @@ export interface PublicRoomView {
   };
   agents: PublicAgentState[];
   tasks: PublicTaskState[];
+  zones: ZoneStatus[];
+  recap: RoomRecap;
   events: EventEntry[];
   chat: ChatMessage[];
 }

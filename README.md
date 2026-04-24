@@ -35,6 +35,13 @@
 - `scan_task`
 - `idle`
 
+当前默认场景参数：
+
+- 班次时长：120 秒
+- 开局人数：至少 4 名 agent
+- 常规危机生成：约每 8 秒
+- 后期危机生成：约每 5 秒，并在最后阶段可能一次出现 2 个
+
 ## 项目结构
 
 ```text
@@ -168,7 +175,10 @@ agent 接口：
 npm run start
 npm run build
 npm run agents
+npm run simulate -- --runs 50
 ```
+
+`npm run simulate` 会在进程内跑多局样例 agent，不需要浏览器或 HTTP，输出胜率、失败原因、最终指标、任务成败和职业贡献，用于调平衡。
 
 ## 文档
 

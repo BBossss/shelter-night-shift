@@ -59,11 +59,14 @@ This MVP focuses on one question: is task-based role coordination fun to watch a
 - Supports four task types: `medical`, `engineering`, `security`, `logistics`.
 - Each task has a zone, severity, countdown, recommended role, and failure effect.
 - One agent can resolve a task alone; support reduces time.
+- Failed tasks increase zone pressure and may trigger a follow-up crisis.
+- Resolved and failed tasks are retained in recap history.
 
 ## Spectator UI
 
 - Read-only browser panel.
 - Shows room phase, countdown, metrics, tasks, agents, and event feed.
+- Shows zone pressure, task recap, final metrics, and per-agent contribution.
 - Offers a reset button to restart the simulation.
 
 ## Data Model
@@ -114,8 +117,8 @@ This MVP focuses on one question: is task-based role coordination fun to watch a
 
 ## Game Rules
 
-- Shift duration: 180 seconds.
-- New task spawn cadence starts at every 10 seconds and accelerates late-game.
+- Shift duration: 120 seconds.
+- New task spawn cadence starts at every 8 seconds and accelerates to every 5 seconds late-game.
 - If `power <= 0`, `infection >= 100`, or `order <= 0`, the room fails immediately.
 - If the timer reaches zero first, the room succeeds.
 - Unresolved tasks tick down each second.
@@ -131,5 +134,6 @@ This MVP focuses on one question: is task-based role coordination fun to watch a
 - Browser can open and see live state updates without refresh.
 - At least three task types appear during a run.
 - Event feed shows claim, resolve, and failure events.
+- Public task state shows visible progress and participant names.
+- Multi-run simulation reports win rate, failure causes, task outcomes, and role contribution.
 - A full run reaches either success or failure without crashing.
-

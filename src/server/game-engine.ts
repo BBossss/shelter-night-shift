@@ -9,6 +9,7 @@ import type {
   ChatMessage,
   EventEntry,
   FailureEffect,
+  AgentContribution,
   InternalTaskState,
   PersonaProfile,
   PublicAgentState,
@@ -16,12 +17,18 @@ import type {
   PublicTaskState,
   RegisterAgentRequest,
   RegisteredAgent,
+  RoomRecap,
   RoomState,
+  TaskHistoryEntry,
   TaskType,
   Zone,
+  ZoneStatus,
 } from "../shared/types.js";
 
 const ROOM_DURATION_SECONDS = 120;
+const TASK_SPAWN_SECONDS = 8;
+const LATE_TASK_SPAWN_SECONDS = 5;
+const FAILURE_EFFECT_MULTIPLIER = 2;
 const MAX_EVENTS = 60;
 const MAX_CHAT = 30;
 const MIN_PLAYERS_TO_START = 4;
@@ -45,6 +52,8 @@ interface TaskTemplate {
   zone: Zone;
   requiredRoleHint: AgentRole;
   failureEffect: FailureEffect;
+  zoneImpact: number;
+  followUpType?: TaskType;
 }
 
 const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
@@ -55,6 +64,8 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "infirmary",
       requiredRoleHint: "doctor",
       failureEffect: { infection: 10, order: -6 },
+      zoneImpact: 18,
+      followUpType: "logistics",
     },
     {
       title: "控制高热扩散",
@@ -62,6 +73,25 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "quarters",
       requiredRoleHint: "doctor",
       failureEffect: { infection: 14 },
+      zoneImpact: 20,
+      followUpType: "security",
+    },
+    {
+      title: "隔离疑似感染者",
+      publicSummary: "有人拒绝隔离，感染风险和恐慌同时上升。",
+      zone: "quarters",
+      requiredRoleHint: "doctor",
+      failureEffect: { infection: 12, order: -5 },
+      zoneImpact: 18,
+      followUpType: "security",
+    },
+    {
+      title: "处理药品过敏反应",
+      publicSummary: "临时用药出现异常反应，需要快速复查。",
+      zone: "infirmary",
+      requiredRoleHint: "doctor",
+      failureEffect: { infection: 7, order: -8 },
+      zoneImpact: 14,
     },
   ],
   engineering: [
@@ -71,6 +101,8 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "generator",
       requiredRoleHint: "engineer",
       failureEffect: { power: -16, order: -4 },
+      zoneImpact: 20,
+      followUpType: "logistics",
     },
     {
       title: "恢复供水压力",
@@ -78,6 +110,24 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "warehouse",
       requiredRoleHint: "engineer",
       failureEffect: { infection: 8, power: -8 },
+      zoneImpact: 16,
+    },
+    {
+      title: "抢修通风滤网",
+      publicSummary: "通风滤网堵塞，空气质量开始恶化。",
+      zone: "quarters",
+      requiredRoleHint: "engineer",
+      failureEffect: { infection: 10, power: -6 },
+      zoneImpact: 17,
+      followUpType: "medical",
+    },
+    {
+      title: "稳定广播线路",
+      publicSummary: "广播线路杂音严重，指令传达开始失真。",
+      zone: "gate",
+      requiredRoleHint: "engineer",
+      failureEffect: { order: -10, power: -5 },
+      zoneImpact: 14,
     },
   ],
   security: [
@@ -87,6 +137,8 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "quarters",
       requiredRoleHint: "security",
       failureEffect: { order: -18 },
+      zoneImpact: 22,
+      followUpType: "medical",
     },
     {
       title: "封堵大门缺口",
@@ -94,6 +146,25 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "gate",
       requiredRoleHint: "security",
       failureEffect: { order: -12, infection: 6 },
+      zoneImpact: 20,
+      followUpType: "engineering",
+    },
+    {
+      title: "清点失踪通行证",
+      publicSummary: "有通行证去向不明，入口秩序被削弱。",
+      zone: "gate",
+      requiredRoleHint: "security",
+      failureEffect: { order: -14 },
+      zoneImpact: 18,
+    },
+    {
+      title: "护送医务通道",
+      publicSummary: "医务室通道被围堵，伤员转运受阻。",
+      zone: "infirmary",
+      requiredRoleHint: "security",
+      failureEffect: { order: -9, infection: 5 },
+      zoneImpact: 16,
+      followUpType: "medical",
     },
   ],
   logistics: [
@@ -103,6 +174,8 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "warehouse",
       requiredRoleHint: "logistics",
       failureEffect: { infection: 7, order: -5 },
+      zoneImpact: 16,
+      followUpType: "medical",
     },
     {
       title: "补充备用电池",
@@ -110,6 +183,24 @@ const TASK_LIBRARY: Record<TaskType, TaskTemplate[]> = {
       zone: "generator",
       requiredRoleHint: "logistics",
       failureEffect: { power: -12 },
+      zoneImpact: 17,
+    },
+    {
+      title: "重排净水配给",
+      publicSummary: "净水配给记录混乱，排队情绪开始升温。",
+      zone: "warehouse",
+      requiredRoleHint: "logistics",
+      failureEffect: { infection: 5, order: -10 },
+      zoneImpact: 16,
+      followUpType: "security",
+    },
+    {
+      title: "转运封存口粮",
+      publicSummary: "一批口粮被潮气污染，需要立刻隔离转运。",
+      zone: "warehouse",
+      requiredRoleHint: "logistics",
+      failureEffect: { order: -8, infection: 6 },
+      zoneImpact: 15,
     },
   ],
 };
@@ -159,6 +250,7 @@ export class GameEngine {
       lastActionTick: -1,
     };
     this.state.agents.push(agent);
+    this.state.agentContributions.push(this.createContribution(agent));
     this.log("system", `${ROLE_LABEL[agent.role]} ${agent.name} 已注册，等待加入房间。`);
     return { agentId, secret };
   }
@@ -214,6 +306,7 @@ export class GameEngine {
     this.chatCounter = 0;
     this.state = this.createInitialState();
     this.state.agents = preservedAgents;
+    this.state.agentContributions = preservedAgents.map((agent) => this.createContribution(agent));
     this.log("phase", "房间重置完成，等待 agent 重新加入。");
   }
 
@@ -265,6 +358,8 @@ export class GameEngine {
       },
       agents: this.state.agents.map((agent) => this.toPublicAgent(agent)),
       tasks: this.state.tasks.map((task) => this.toPublicTask(task)),
+      zones: this.state.zones.map((zone) => ({ ...zone })),
+      recap: this.getRecap(),
       events: [...this.state.events],
       chat: [...this.state.chat],
     };
@@ -303,6 +398,12 @@ export class GameEngine {
   authenticate(agentId: string, secret: string): boolean {
     const agent = this.state.agents.find((item) => item.id === agentId);
     return !!agent && agent.secret === secret;
+  }
+
+  advanceForTesting(seconds: number): void {
+    for (let index = 0; index < seconds; index += 1) {
+      this.tick();
+    }
   }
 
   private tick(): void {
@@ -344,13 +445,20 @@ export class GameEngine {
       base: { power: 100, infection: 20, order: 100 },
       agents: [],
       tasks: [],
+      taskHistory: [],
+      agentContributions: [],
+      zones: (Object.keys(ZONE_LABEL) as Zone[]).map((zone) => ({
+        zone,
+        pressure: 0,
+        condition: "stable",
+      })),
       events: [],
       chat: [],
     };
   }
 
   private spawnTasksIfNeeded(): void {
-    const spawnEvery = this.state.remainingSeconds <= 50 ? 5 : 8;
+    const spawnEvery = this.state.remainingSeconds <= 50 ? LATE_TASK_SPAWN_SECONDS : TASK_SPAWN_SECONDS;
     if (this.state.tick === 1 || this.state.tick % spawnEvery === 0) {
       const count = this.state.remainingSeconds <= 30 ? 2 : 1;
       for (let i = 0; i < count; i += 1) {
@@ -375,10 +483,14 @@ export class GameEngine {
 
     const options = TASK_LIBRARY[bias];
     const template = options[this.taskCounter % options.length];
+    this.createTaskFromTemplate(bias, template);
+  }
+
+  private createTaskFromTemplate(type: TaskType, template: TaskTemplate): void {
     const exactSeverity = this.state.remainingSeconds <= 30 ? 3 : this.state.remainingSeconds <= 80 ? 2 : 1;
     const task: InternalTaskState = {
       id: `task_${++this.taskCounter}`,
-      type: bias,
+      type,
       title: template.title,
       publicSummary: template.publicSummary,
       zone: template.zone,
@@ -386,6 +498,7 @@ export class GameEngine {
       countdown: 12 - exactSeverity,
       status: "open",
       assignedAgents: [],
+      assignedAgentNames: [],
       exactSeverity,
       requiredRoleHint: template.requiredRoleHint,
       progress: 0,
@@ -406,6 +519,7 @@ export class GameEngine {
     agent.currentTaskId = task.id;
     agent.scanCompleteTick = this.state.tick + 2;
     agent.zone = task.zone;
+    this.getContribution(agent.id).scans += 1;
     this.log("scan", `${ROLE_LABEL[agent.role]} ${agent.name} 前往${ZONE_LABEL[task.zone]}侦测“${task.title}”。`);
   }
 
@@ -422,6 +536,7 @@ export class GameEngine {
     agent.status = "working";
     agent.currentTaskId = task.id;
     agent.zone = task.zone;
+    this.getContribution(agent.id).claims += 1;
     this.log("claim", `${ROLE_LABEL[agent.role]} ${agent.name} 接下了“${task.title}”。`);
   }
 
@@ -440,6 +555,7 @@ export class GameEngine {
     agent.status = "working";
     agent.currentTaskId = task.id;
     agent.zone = task.zone;
+    this.getContribution(agent.id).assists += 1;
     this.log("assist", `${ROLE_LABEL[agent.role]} ${agent.name} 正在支援“${task.title}”。`);
   }
 
@@ -476,6 +592,7 @@ export class GameEngine {
 
       const tickProgress = assigned.reduce((total, agent) => {
         const roleBonus = agent.role === task.requiredRoleHint ? 3 : 1;
+        this.getContribution(agent.id).progress += roleBonus;
         return total + roleBonus;
       }, 0);
       task.progress += tickProgress;
@@ -485,7 +602,10 @@ export class GameEngine {
         for (const agent of assigned) {
           agent.status = "idle";
           agent.currentTaskId = null;
+          this.getContribution(agent.id).resolved += 1;
         }
+        this.recordTaskHistory(task, "resolved");
+        this.coolZone(task.zone, 8);
         this.log(
           "resolve",
           `${task.title} 已解决，参与者：${assigned.map((agent) => `${ROLE_LABEL[agent.role]} ${agent.name}`).join("、")}。`,
@@ -505,8 +625,14 @@ export class GameEngine {
       if (task.countdown <= 0) {
         task.status = "failed";
         this.applyFailure(task.failureEffect);
+        this.pressurizeZone(task.zone, this.getZoneImpact(task));
+        this.recordTaskHistory(task, "failed");
+        for (const agentId of task.assignedAgents) {
+          this.getContribution(agentId).failedTouched += 1;
+        }
         this.releaseAgentsFromTaskIds(task.assignedAgents);
         this.log("fail", `${task.title} 处理失败，避难所压力上升。`);
+        this.maybeSpawnFollowUp(task);
       }
     }
     this.state.tasks = this.state.tasks.filter((task) => task.status !== "failed");
@@ -514,9 +640,9 @@ export class GameEngine {
 
   private applyFailure(effect: FailureEffect): void {
     this.state.base = {
-      power: this.clamp(this.state.base.power + (effect.power ?? 0)),
-      infection: this.clamp(this.state.base.infection + (effect.infection ?? 0)),
-      order: this.clamp(this.state.base.order + (effect.order ?? 0)),
+      power: this.clamp(this.state.base.power + (effect.power ?? 0) * FAILURE_EFFECT_MULTIPLIER),
+      infection: this.clamp(this.state.base.infection + (effect.infection ?? 0) * FAILURE_EFFECT_MULTIPLIER),
+      order: this.clamp(this.state.base.order + (effect.order ?? 0) * FAILURE_EFFECT_MULTIPLIER),
     };
   }
 
@@ -530,6 +656,119 @@ export class GameEngine {
       this.state.phase = "success";
       this.log("phase", "天亮了，避难所成功撑过这一夜。");
     }
+  }
+
+  private getRecap(): RoomRecap {
+    const failureCause: RoomRecap["failureCause"] =
+      this.state.base.power <= 0
+        ? "power"
+        : this.state.base.infection >= 100
+          ? "infection"
+          : this.state.base.order <= 0
+            ? "order"
+            : null;
+    return {
+      phase: this.state.phase,
+      failureCause,
+      tasksResolved: this.state.taskHistory.filter((task) => task.status === "resolved").length,
+      tasksFailed: this.state.taskHistory.filter((task) => task.status === "failed").length,
+      taskHistory: [...this.state.taskHistory],
+      agentContributions: this.state.agentContributions.map((item) => ({ ...item })),
+      keyEvents: this.state.events.filter((event) => ["phase", "resolve", "fail"].includes(event.kind)).slice(0, 12),
+      finalBase: { ...this.state.base },
+    };
+  }
+
+  private createContribution(agent: RegisteredAgent): AgentContribution {
+    return {
+      agentId: agent.id,
+      name: agent.name,
+      role: agent.role,
+      claims: 0,
+      assists: 0,
+      scans: 0,
+      resolved: 0,
+      failedTouched: 0,
+      progress: 0,
+    };
+  }
+
+  private getContribution(agentId: string): AgentContribution {
+    let contribution = this.state.agentContributions.find((item) => item.agentId === agentId);
+    if (!contribution) {
+      const agent = this.state.agents.find((item) => item.id === agentId);
+      if (!agent) {
+        throw new Error("agent 不存在");
+      }
+      contribution = this.createContribution(agent);
+      this.state.agentContributions.push(contribution);
+    }
+    return contribution;
+  }
+
+  private recordTaskHistory(task: InternalTaskState, status: TaskHistoryEntry["status"]): void {
+    this.state.taskHistory.unshift({
+      id: task.id,
+      title: task.title,
+      type: task.type,
+      zone: task.zone,
+      status,
+      tick: this.state.tick,
+      assignedAgentNames: task.assignedAgents.map((agentId) => this.state.agents.find((agent) => agent.id === agentId)?.name ?? agentId),
+      failureEffect: status === "failed" ? task.failureEffect : undefined,
+    });
+    this.state.taskHistory = this.state.taskHistory.slice(0, 80);
+  }
+
+  private pressurizeZone(zone: Zone, amount: number): void {
+    const status = this.state.zones.find((item) => item.zone === zone);
+    if (!status) {
+      return;
+    }
+    status.pressure = this.clamp(status.pressure + amount);
+    status.condition = this.zoneCondition(status.pressure);
+  }
+
+  private coolZone(zone: Zone, amount: number): void {
+    const status = this.state.zones.find((item) => item.zone === zone);
+    if (!status) {
+      return;
+    }
+    status.pressure = this.clamp(status.pressure - amount);
+    status.condition = this.zoneCondition(status.pressure);
+  }
+
+  private zoneCondition(pressure: number): ZoneStatus["condition"] {
+    if (pressure >= 70) {
+      return "critical";
+    }
+    if (pressure >= 35) {
+      return "strained";
+    }
+    return "stable";
+  }
+
+  private getZoneImpact(task: InternalTaskState): number {
+    const template = TASK_LIBRARY[task.type].find((item) => item.title === task.title);
+    return template?.zoneImpact ?? 12 + task.exactSeverity * 3;
+  }
+
+  private maybeSpawnFollowUp(task: InternalTaskState): void {
+    const template = TASK_LIBRARY[task.type].find((item) => item.title === task.title);
+    if (!template?.followUpType || task.exactSeverity < 2) {
+      return;
+    }
+    const activeCount = this.state.tasks.filter((item) => item.status !== "resolved" && item.status !== "failed").length;
+    if (activeCount >= 4) {
+      return;
+    }
+    this.spawnTaskOfType(template.followUpType);
+  }
+
+  private spawnTaskOfType(type: TaskType): void {
+    const options = TASK_LIBRARY[type];
+    const template = options[this.taskCounter % options.length];
+    this.createTaskFromTemplate(type, template);
   }
 
   private getAgent(agentId: string): RegisteredAgent {
@@ -593,6 +832,9 @@ export class GameEngine {
       countdown: task.countdown,
       status: task.status,
       assignedAgents: [...task.assignedAgents],
+      assignedAgentNames: task.assignedAgents.map((agentId) => this.state.agents.find((agent) => agent.id === agentId)?.name ?? agentId),
+      progress: task.progress,
+      progressNeeded: task.progressNeeded,
     };
   }
 
