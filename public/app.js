@@ -332,6 +332,30 @@ async function loadInitial() {
   render(state);
 }
 
+let polling = false;
+async function pollRoom() {
+  try {
+    const response = await fetch("/api/room");
+    if (!response.ok) {
+      throw new Error(`room poll failed: ${response.status}`);
+    }
+    const state = await response.json();
+    render(state);
+    setConnection("online", "轮询在线");
+  } catch {
+    setConnection("offline", "轮询异常");
+  }
+}
+
+function startPolling() {
+  if (polling) {
+    return;
+  }
+  polling = true;
+  pollRoom();
+  setInterval(pollRoom, 2000);
+}
+
 function connect() {
   const protocol = location.protocol === "https:" ? "wss" : "ws";
   const socket = new WebSocket(`${protocol}://${location.host}`);
@@ -346,7 +370,7 @@ function connect() {
   });
   socket.addEventListener("close", () => {
     setConnection("offline", "重连中");
-    setTimeout(connect, 1200);
+    startPolling();
   });
   socket.addEventListener("error", () => {
     setConnection("offline", "连接异常");
